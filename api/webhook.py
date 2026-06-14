@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import traceback
+from http.server import BaseHTTPRequestHandler
 
 import requests
 
@@ -14,25 +15,27 @@ from config import TELEGRAM_TOKEN
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
 
-class handler:
-    def __init__(self, environ, start_response):
-        self.environ = environ
-        self.start_response = start_response
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length)
 
-    def __iter__(self):
-        method = self.environ["REQUEST_METHOD"]
-        content_length = int(self.environ.get("CONTENT_LENGTH", 0))
-        body = self.environ["wsgi.input"].read(content_length) if content_length else b""
+        try:
+            update = json.loads(body)
+            self.process_update(update)
+        except Exception:
+            pass
 
-        if method == "POST":
-            try:
-                update = json.loads(body)
-                self.process_update(update)
-            except Exception:
-                pass
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"ok": True}).encode())
 
-        self.start_response("200 OK", [("Content-Type", "application/json")])
-        yield json.dumps({"ok": True}).encode()
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot Absensi Webhook is running")
 
     def process_update(self, update):
         if "message" not in update:
@@ -82,6 +85,10 @@ class handler:
     def send_message(self, chat_id, text):
         url = f"{TELEGRAM_API}/sendMessage"
         try:
-            requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=15)
+            requests.post(
+                url,
+                json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+                timeout=15,
+            )
         except Exception:
             requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=15)
