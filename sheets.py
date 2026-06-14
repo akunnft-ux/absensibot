@@ -1,3 +1,5 @@
+import json
+import os
 import calendar
 from datetime import datetime
 
@@ -24,7 +26,12 @@ def _col_letter(col_num: int) -> str:
 
 
 def get_client():
-    creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPE)
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        info = json.loads(creds_json)
+        creds = Credentials.from_service_account_info(info, scopes=SCOPE)
+    else:
+        creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPE)
     return gspread.authorize(creds)
 
 
